@@ -1,23 +1,22 @@
 package main
 
 import (
+	"github.com/jarcoal/httpmock"
 	"io/ioutil"
 	"net/url"
 	"os"
 	"testing"
-	"github.com/jarcoal/httpmock"
-
 )
 
 var fetcher = CachedPageFetcher{visited: make(map[string]Page)}
 
 func TestParsePage(t *testing.T) {
-	file,_ := os.Open("testPage.html")
-	seedUrl,_  := url.Parse("http://test.com/")
-	page,_ := fetcher.ParsePage(file, seedUrl)
+	file, _ := os.Open("testPage.html")
+	seedUrl, _ := url.Parse("http://test.com/")
+	page, _ := fetcher.ParsePage(file, seedUrl)
 
 	if page.title != "TestPage Title" {
-		t.Errorf("failed to parse page title, got %s, expected %s",page.title, "TestPage Title")
+		t.Errorf("failed to parse page title, got %s, expected %s", page.title, "TestPage Title")
 	}
 
 	if len(page.urls) != 3 {
@@ -32,16 +31,16 @@ func TestParsePage(t *testing.T) {
 func TestFetch(t *testing.T) {
 	httpmock.Activate()
 
-	file,_ := ioutil.ReadFile("testPage.html")
+	file, _ := ioutil.ReadFile("testPage.html")
 	mockresp := string(file)
 	httpmock.RegisterResponder("GET", "http://test.com/",
 		httpmock.NewStringResponder(200, mockresp))
 
-	seedUrl,_  := url.Parse("http://test.com/")
-	page,_ := fetcher.Fetch(seedUrl)
+	seedUrl, _ := url.Parse("http://test.com/")
+	page, _ := fetcher.Fetch(seedUrl)
 
 	if page.title != "TestPage Title" {
-		t.Errorf("failed to parse page title, got %s, expected %s",page.title, "TestPage Title")
+		t.Errorf("failed to parse page title, got %s, expected %s", page.title, "TestPage Title")
 	}
 
 	if len(fetcher.visited) != 1 {
@@ -49,10 +48,10 @@ func TestFetch(t *testing.T) {
 	}
 
 	httpmock.DeactivateAndReset()
-	page2,_ := fetcher.Fetch(seedUrl)
+	page2, _ := fetcher.Fetch(seedUrl)
 
 	if page2.title != "TestPage Title" {
-		t.Errorf("faild to fetch page fromc cache, got %s, expected %s",page2.title, "TestPage Title")
+		t.Errorf("faild to fetch page fromc cache, got %s, expected %s", page2.title, "TestPage Title")
 	}
 
 	if len(fetcher.visited) != 1 {
@@ -63,40 +62,42 @@ func TestFetch(t *testing.T) {
 // I expect there is a  better way to test when using channels
 func TestCrawl(t *testing.T) {
 	result := make(chan string)
-	var seedUrl,_ = url.Parse("http://test.com/")
+	var seedUrl, _ = url.Parse("http://test.com/")
 	go Crawl(seedUrl, 0, 2, testFetcher, result)
 
-	data := <- result
-	if data != "http://test.com/ \"Home\"" {
-		t.Errorf("unexpectedResult %s, %s", data, "http://test.com/ \"Home\"")
-	}
-	data = <- result
-	if data != "	http://test.com/page1/ \"Page 1\"" {
+	data := <-result
+	if data != "|_ http://test.com/ \"Home\"" {
 		t.Errorf("unexpectedResult %s", data)
 	}
-	data = <- result
-	if data != "		http://test.com/page3/" {
+	data = <-result
+	if data != "	|_ http://test.com/page1/ \"Page 1\"" {
 		t.Errorf("unexpectedResult %s", data)
 	}
-	data = <- result
-	if data != "	http://test.com/page2/ \"Page 2\"" {
+	data = <-result
+	if data != "		|_ http://test.com/page3/" {
 		t.Errorf("unexpectedResult %s", data)
 	}
-	data = <- result
-	if data != "		http://test.com/page4/" {
+	data = <-result
+	if data != "	|_ http://test.com/page2/ \"Page 2\"" {
+		t.Errorf("unexpectedResult %s", data)
+	}
+	data = <-result
+	if data != "		|_ http://test.com/page4/" {
 		t.Errorf("unexpectedResult %s", data)
 	}
 
 }
 
 type fakeFetcher map[string]*Page
+
 func (f fakeFetcher) Fetch(pageUrl *url.URL) (*Page, error) {
 	return f[pageUrl.String()], nil
 }
-func fakeUrl(link string) *url.URL{
-	val,_ := url.Parse(link)
+func fakeUrl(link string) *url.URL {
+	val, _ := url.Parse(link)
 	return val
 }
+
 var testFetcher = fakeFetcher{
 	"http://test.com/": &Page{
 		"Home",
@@ -118,4 +119,3 @@ var testFetcher = fakeFetcher{
 		},
 	},
 }
-

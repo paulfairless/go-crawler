@@ -20,10 +20,10 @@ import (
 */
 func main() {
 	seed := flag.String("url", "https://monzo.com", "url to spider")
-	depth := flag.Int("depth", 1, "crawl depth")
+	depth := flag.Int("depth", 2, "crawl depth")
 	flag.Parse()
 
-	startUrl,err := url.Parse(*seed)
+	startUrl, err := url.Parse(*seed)
 	if err != nil {
 		log.Println("Could not parse start url")
 		os.Exit(1)
@@ -44,7 +44,7 @@ func Crawl(url *url.URL, depth int, maxDepth int, fetcher Fetcher, ret chan stri
 	spacing := strings.Repeat("\t", depth)
 
 	if depth >= maxDepth {
-		ret <- fmt.Sprintf("%s%s", spacing, url)
+		ret <- fmt.Sprintf("%s|_ %s", spacing, url)
 		return
 	}
 
@@ -53,7 +53,7 @@ func Crawl(url *url.URL, depth int, maxDepth int, fetcher Fetcher, ret chan stri
 		ret <- err.Error()
 		return
 	}
-	ret <- fmt.Sprintf("%s%s %q", spacing, url, page.title)
+	ret <- fmt.Sprintf("%s|_ %s %q", spacing, url, page.title)
 
 	result := make([]chan string, len(page.urls))
 	for i, u := range page.urls {
@@ -73,7 +73,7 @@ func Crawl(url *url.URL, depth int, maxDepth int, fetcher Fetcher, ret chan stri
 /* Data structure for page */
 type Page struct {
 	title string
-	urls []*url.URL
+	urls  []*url.URL
 }
 
 /* Fetcher interface */
@@ -84,7 +84,7 @@ type Fetcher interface {
 /* Cached Page fetcher */
 type CachedPageFetcher struct {
 	visited map[string]Page
-	mux sync.Mutex
+	mux     sync.Mutex
 }
 
 /* 	safe simple cache for fetched pages */
@@ -116,7 +116,7 @@ func (c *CachedPageFetcher) ParsePage(r io.Reader, pageUrl *url.URL) (Page, erro
 	doc.Find("body a").Each(func(index int, item *goquery.Selection) {
 		linkTag := item
 		link, _ := linkTag.Attr("href")
-		url,_ := url.Parse(link)
+		url, _ := url.Parse(link)
 		resolvedLink := pageUrl.ResolveReference(url)
 
 		// verify links have same domain
@@ -139,13 +139,13 @@ func (c CachedPageFetcher) Fetch(pageUrl *url.URL) (*Page, error) {
 	}
 
 	// Get page via http
-	resp,err := http.Get(pageUrl.String())
+	resp, err := http.Get(pageUrl.String())
 	if err != nil {
 		log.Println("Failed to fetch url:"+pageUrl.String(), err)
 		return &Page{}, err
 	}
 	defer resp.Body.Close()
-	page,err = c.ParsePage(resp.Body, pageUrl)
+	page, err = c.ParsePage(resp.Body, pageUrl)
 	if err != nil {
 		log.Println("Failed to parse page", err)
 		return &page, err
