@@ -20,7 +20,7 @@ import (
 */
 func main() {
 	seed := flag.String("url", "https://monzo.com", "url to spider")
-	depth := flag.Int("depth", 2, "crawl depth")
+	depth := flag.Int("depth", 1, "crawl depth")
 	flag.Parse()
 
 	startUrl, err := url.Parse(*seed)
